@@ -79,4 +79,4 @@ Test on COCO 2017 val:
 
 | model | imgs/s (train) | imgs/s (test)| epochs | params | bbox AP |
 | ---- | --- | --- | -- | -- | -- |
-| YOLOv5s | 226 | 290 | 190 | 7.5M | 28.9 |
+| YOLOv5s | 303 | 495 | 190 | 7.5M | 28.8 |
