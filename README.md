@@ -73,7 +73,7 @@ I have no idea why the overfitting appears after 190 epochs, so I can only train
 
 The model is trained from scratch, on COCO 2017 train, using a single RTX 2080Ti GPU.
 
-One entire epoch takes about 600 seconds (train 550s + eval 50s).
+One entire epoch takes about 435 seconds (train 405s + eval 30s).
 
 Test on COCO 2017 val:
 
