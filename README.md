@@ -59,8 +59,6 @@ bash ./run.sh
 ```
 If you are using PyTorch ≥ 1.6.0 and RTX series GPUs, the code will enable automatic mixed training (AMP).
 
-I have no idea why the overfitting appears after 190 epochs, so I can only train the model for 190 epochs.
-
 ## Demo and Evaluation
 
 - Run ```demo.ipynb```.
