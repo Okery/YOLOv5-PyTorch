@@ -1,3 +1,4 @@
+import argparse
 import math
 import os
 import re
@@ -30,9 +31,9 @@ def main(args):
     # ---------------------- prepare data loader ------------------------------- #
     
     # NVIDIA DALI, much faster data loader.
-    DALI = yolo.DALI & args.dali
+    DALI = cuda & yolo.DALI & args.dali & (args.dataset == "coco")
     
-    if cuda and DALI and args.dataset == "coco":
+    if DALI:
         # Currently only support COCO dataset; support distributed training
         
         # DALICOCODataLoader behaves like PyTorch's DataLoader.
@@ -139,7 +140,7 @@ def main(args):
     for epoch in range(start_epoch, args.epochs):
         print("\nepoch: {}".format(epoch + 1))
         
-        if args.distributed and not DALI:
+        if not DALI and args.distributed:
             sampler_train.set_epoch(epoch)
             
         A = time.time()
@@ -164,7 +165,7 @@ def main(args):
 
             # It will create many checkpoint files during training, so delete some.
             ckpts = yolo.find_ckpts(args.ckpt_path)
-            remaining = 40
+            remaining = 60
             if len(ckpts) > remaining:
                 for i in range(len(ckpts) - remaining):
                     os.system("rm {}".format(ckpts[i]))
@@ -177,7 +178,6 @@ def main(args):
     
     
 if __name__ == "__main__":
-    import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--use-cuda", action="store_true") # whether use the GPU
     
