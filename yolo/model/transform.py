@@ -38,7 +38,7 @@ class Transformer(nn.Module):
             image = images[i]
             target = targets[i] if targets is not None else None
             
-            image, target = self.transform(image, target)
+            image, target = self.transforms(image, target)
             
             images[i] = image
             if target is not None:
@@ -57,13 +57,13 @@ class Transformer(nn.Module):
         std = image.new(self.std)[:, None, None]
         return (image - mean) / std
     
-    def transform(self, image, target):
+    def transforms(self, image, target):
         if self.training:
             if random.random() < self.flip_prob:
                 image, target["boxes"] = self.horizontal_flip(image, target["boxes"])
         
         image, target = self.resize(image, target)
-        image = self.normalize(image)
+        #image = self.normalize(image)
         return image, target
         
     def horizontal_flip(self, image, boxes):
@@ -109,25 +109,6 @@ class Transformer(nn.Module):
             boxes[:, [1, 3]] *= o_im_s[0] / im_s[0]
             
         return results
-    
-    
-def sort_images1(shapes, out):
-    # deprecated
-    shapes.sort(key=lambda x: x[0]) # max h
-    img1 = shapes.pop()
-    img2 = shapes.pop()
-    out.append(img1[2])
-    out.append(img2[2])
-    
-    shapes.sort(key=lambda x: abs(x[1] - img1[1]), reverse=True) # similar w
-    img3 = shapes.pop()
-    out.append(img3[2])
-    
-    shapes.sort(key=lambda x: abs(x[0] - img3[0]) + abs(x[1] - img2[1]), reverse=True) # similar h, w
-    img4 = shapes.pop()
-    out.append(img4[2])
-    if shapes:
-        sort_images(shapes, out)
         
         
 def sort_images(shapes, out, dim):

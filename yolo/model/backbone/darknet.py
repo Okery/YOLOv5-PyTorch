@@ -4,15 +4,15 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from .utils import convolutional, ConcatBlock
+from .utils import Conv, ConcatBlock
 
 
 class SpatialPyramidPooling(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
         mid_channels = in_channels // 2
-        self.conv1 = convolutional(in_channels, mid_channels, 1)
-        self.conv2 = convolutional(4 * mid_channels, out_channels, 1)
+        self.conv1 = Conv(in_channels, mid_channels, 1)
+        self.conv2 = Conv(4 * mid_channels, out_channels, 1)
         
         self.pool1 = nn.MaxPool2d(5, 1, 2)
         self.pool2 = nn.MaxPool2d(9, 1, 4)
@@ -36,7 +36,7 @@ class SpatialPyramidPooling(nn.Module):
 class Focus(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size):
         super().__init__()
-        self.conv = convolutional(4 * in_channels, out_channels, kernel_size)
+        self.conv = Conv(4 * in_channels, out_channels, kernel_size)
         self.out_channels = out_channels
         
     def forward(self, x):
@@ -54,7 +54,7 @@ class CSPDarknet(nn.Sequential):
         for i, ch in enumerate(out_channels_list[1:]):
             in_channels = out_channels_list[i]
             name = "layer{}".format(i + 1)
-            d[name] = nn.Sequential(convolutional(in_channels, ch, 3, 2))
+            d[name] = nn.Sequential(Conv(in_channels, ch, 3, 2))
             if i < len(out_channels_list) - 2:
                 d[name].add_module("concat", ConcatBlock(ch, ch, layers[i], True))
             else:
@@ -62,11 +62,11 @@ class CSPDarknet(nn.Sequential):
             
         super().__init__(d)
         
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
-            elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
+        #for m in self.modules():
+        #    if isinstance(m, nn.Conv2d):
+        #        nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="leaky_relu")
+        #    elif isinstance(m, (nn.BatchNorm2d, nn.GroupNorm)):
+        #        nn.init.constant_(m.weight, 1)
+        #        nn.init.constant_(m.bias, 0)
            
         

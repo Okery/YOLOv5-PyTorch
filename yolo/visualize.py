@@ -62,7 +62,7 @@ def show_single(image, target, classes, save):
         masks = target["masks"].unsqueeze(1)
         masks = masks.repeat(1, 3, 1, 1)
         for i, m in enumerate(masks):
-            f = torch.tensor(factor(i, 0.4)).reshape(3, 1, 1).to(image)
+            f = torch.tensor(factor(i)).reshape(3, 1, 1).to(image)
             value = f * m
             image += value
             

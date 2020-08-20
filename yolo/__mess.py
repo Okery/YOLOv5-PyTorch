@@ -4,7 +4,16 @@ The code of this file is only a copy of Jupyter Notebook code snippet.
 It's a MESS
 
 """
+# -----------------------------------------------------------------------------------------------------
+import torch
+from collections import OrderedDict
 
+a = m2.state_dict()
+b = c2
+n = []
+for k1, k2 in zip(a, b):
+    n.append((k1, b[k2]))
+torch.save(OrderedDict(n), "xxx.pth")
 # -----------------------------------------------------------------------------------------------------
 import torch
 import yolo

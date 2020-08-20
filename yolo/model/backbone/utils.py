@@ -1,9 +1,13 @@
+import copy
 from collections import OrderedDict
 
 import torch
 import torch.nn.functional as F
 from torch import nn
 
+
+bn_eps = 0.0001
+bn_momentum = 0.03
 
 class MishImplementation(torch.autograd.Function):
     @staticmethod
@@ -23,31 +27,60 @@ class Mish(nn.Module):
     def forward(self, x):
         return MishImplementation.apply(x)
     
-
-def convolutional(in_channels, out_channels, kernel_size, stride=1, padding=None, bn=True, activation="leaky"):
-    d = OrderedDict()
-    if padding is None:
-        padding = kernel_size // 2
-    d["Conv2d"] = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=not bn)
     
-    if bn:
-        d["BatchNorm2d"] = nn.BatchNorm2d(out_channels)
-        
-    if activation == "relu":
-        d["activation"] = nn.ReLU(inplace=True)
-    elif activation == "leaky":
-        d["activation"] = nn.LeakyReLU(0.1, inplace=True)
-    elif activation == "mish":
-        d["activation"] = Mish()
-        
-    return nn.Sequential(d)
+def fuse_conv_and_bn(conv, bn):
+    conv_w, conv_b = conv.weight, conv.bias
+    bn_w, bn_b = bn.weight, bn.bias
+    bn_rm, bn_rv, bn_eps = bn.running_mean, bn.running_var, bn.eps
+
+    if conv_b is None:
+        conv_b = torch.zeros_like(bn_rm)
+    bn_var_rsqrt = torch.rsqrt(bn_rv + bn_eps)
+
+    fconv_w = conv_w * (bn_w * bn_var_rsqrt).reshape(-1, 1, 1, 1)
+    fconv_b = (conv_b - bn_rm) * bn_var_rsqrt * bn_w + bn_b
+
+    fused_conv = copy.deepcopy(conv)
+    fused_conv.weight = nn.Parameter(fconv_w)
+    fused_conv.bias = nn.Parameter(fconv_b)
+    return fused_conv
+    
+    
+class Conv(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size,
+                 stride=1, padding=None, acti="leaky"):
+        super().__init__()
+        if padding is None:
+            padding = kernel_size // 2
+            
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=False)
+        self.bn = nn.BatchNorm2d(out_channels, eps=bn_eps, momentum=bn_momentum)
+        if acti == "relu":
+            self.acti = nn.ReLU(inplace=True)
+        elif acti == "leaky":
+            self.acti = nn.LeakyReLU(0.1, inplace=True)
+        elif acti == "mish":
+            self.acti = Mish()
+            
+        self.fused = False
+            
+    def forward(self, x):
+        if not self.training and self.fused:
+            return self.acti(self.fused_conv[0](x))
+        else :
+            return self.acti(self.bn(self.conv(x)))
+            
+    def fuse(self):
+        self.fused = True
+        # () is avoiding registering mechanism
+        self.fused_conv = (fuse_conv_and_bn(self.conv, self.bn),)
 
 
 class FusionBlock(nn.Module):
     def __init__(self, in_channels, out_channels, fusion):
         super().__init__()
-        self.conv1 = convolutional(in_channels, out_channels, 1)
-        self.conv2 = convolutional(out_channels, out_channels, 3)
+        self.conv1 = Conv(in_channels, out_channels, 1)
+        self.conv2 = Conv(out_channels, out_channels, 3)
         self.fusion = fusion and in_channels == out_channels
     
     def forward(self, x):
@@ -62,17 +95,17 @@ class ConcatBlock(nn.Module):
         super().__init__()
         mid_channels = out_channels // 2
         self.part1 = nn.Sequential(
-            convolutional(in_channels, mid_channels, 1),
+            Conv(in_channels, mid_channels, 1),
             nn.Sequential(*[FusionBlock(mid_channels, mid_channels, fusion) for _ in range(layer)]),
             nn.Conv2d(mid_channels, mid_channels, 1, bias=False),
         )
         self.part2 = nn.Conv2d(in_channels, mid_channels, 1, bias=False)
         self.tail = nn.Sequential(
-            nn.BatchNorm2d(2 * mid_channels),
+            nn.BatchNorm2d(2 * mid_channels, eps=bn_eps, momentum=bn_momentum),
             nn.LeakyReLU(0.1, inplace=True),
         )
         
-        self.conv = convolutional(2 * mid_channels, out_channels, 1)
+        self.conv = Conv(2 * mid_channels, out_channels, 1)
         
     def forward(self, x):
         x1 = self.part1(x)

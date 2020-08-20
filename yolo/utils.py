@@ -21,6 +21,7 @@ def setup_seed(seed):
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
     else:
+        torch.backends.cudnn.deterministic = False
         torch.backends.cudnn.benchmark = True
     
 
@@ -47,7 +48,10 @@ def find_ckpts(path):
 
 def reduce_weights(path):
     ckpt = torch.load(path, torch.device("cpu"))
-    weights = ckpt["ema"][0]
+    if "ema" in ckpt:
+        weights = ckpt["ema"][0]
+    else:
+        weights = ckpt
     for k, v in weights.items():
         if v.is_floating_point():
             weights[k] = v.half()

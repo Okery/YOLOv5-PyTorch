@@ -1,5 +1,3 @@
-import math
-
 import torch
 import torch.nn.functional as F
 from torch import nn
@@ -8,37 +6,32 @@ from . import box_ops
 
 
 class Head(nn.Module):
-    def __init__(self, predictor, anchors, match_thresh,
-                 giou_ratio, eps, loss_weights, 
+    def __init__(self, predictor, anchors, strides, 
+                 match_thresh, giou_ratio, loss_weights, 
                  score_thresh, nms_thresh, detections):
         super().__init__()
         self.predictor = predictor
-        
-        #self.anchors = []
-        #for i, anc in enumerate(anchors, 1):
-        #    self.register_buffer("anchor{}".format(i), torch.Tensor(anc))
-        #    self.anchors.append(eval("self.anchor{}".format(i)))
         self.register_buffer("anchors", torch.Tensor(anchors))
+        self.strides = strides
         
         self.match_thresh = match_thresh
         self.giou_ratio = giou_ratio
-        self.eps = eps
         self.loss_weights = loss_weights
         
         self.score_thresh = score_thresh
         self.nms_thresh = nms_thresh
         self.detections = detections
         
-        self.strides = None
+        self.merge = False
         self.eval_with_loss = False
         #self.min_size = 2
         
     def forward(self, features, batch_shape, targets, image_shapes):
         preds = self.predictor(features)
         
-        if self.strides is None:
-            self.strides = [2 ** int(math.log2(batch_shape[0] / f.shape[2])) for f in features]
-
+        #if self.strides is None:
+        #    self.strides = [2 ** int(math.log2(batch_shape[0] / f.shape[2])) for f in features]
+        
         results, losses = [], {}
         if self.training:
             losses = self.compute_loss(preds, targets)
@@ -81,10 +74,10 @@ class Head(nn.Module):
                 gt_object[image_id, grid_xy[:, 1], grid_xy[:, 0], anchor_id] = \
                 self.giou_ratio * giou.detach().clamp(0) + (1 - self.giou_ratio)
                 
-                pos = 1 - 0.5 * self.eps
-                neg = 1 - pos
-                gt_label = torch.full_like(pred_level[..., 5:], neg)
-                gt_label[range(len(gt_id)), gt_labels[gt_id]] = pos
+                #pos = 1 - 0.5 * self.eps
+                #neg = 1 - pos
+                gt_label = torch.zeros_like(pred_level[..., 5:])
+                gt_label[range(len(gt_id)), gt_labels[gt_id]] = 1
                 losses["loss_cls"] += F.binary_cross_entropy_with_logits(pred_level[..., 5:], gt_label)
             losses["loss_obj"] += F.binary_cross_entropy_with_logits(pred[..., 4], gt_object)
 
@@ -92,50 +85,55 @@ class Head(nn.Module):
         return losses
     
     def inference(self, preds, image_shapes, max_size):
-        dtype = preds[0].dtype
-        
-        xs = []
+        ids, ps, boxes = [], [], []
         for pred, stride, wh in zip(preds, self.strides, self.anchors): # 3.54s
             pred = torch.sigmoid(pred)
             n, y, x, a = torch.where(pred[..., 4] > self.score_thresh)
-            xy = torch.stack((x, y), dim=1)
+            p = pred[n, y, x, a]
             
-            xy = (2 * pred[n, y, x, a, :2] - 0.5 + xy) * stride
-            wh = 4 * pred[n, y, x, a, 2:4] ** 2 * wh[a]
-            pred[n, y, x, a, :4] = torch.cat((xy, wh), dim=1).to(dtype)
-            xs.append(pred.flatten(1, 3))
-        xs = torch.cat(xs, dim=1)
+            xy = torch.stack((x, y), dim=1)
+            xy = (2 * p[:, :2] - 0.5 + xy) * stride
+            wh = 4 * p[:, 2:4] ** 2 * wh[a]
+            box = torch.cat((xy, wh), dim=1)
+            
+            ids.append(n)
+            ps.append(p)
+            boxes.append(box)
+            
+        ids = torch.cat(ids)
+        ps = torch.cat(ps)
+        boxes = torch.cat(boxes)
+        
+        boxes = box_ops.cxcywh2xyxy(boxes)
+        logits = ps[:, [4]] * ps[:, 5:]
+        indices, labels = torch.where(logits > self.score_thresh) # 4.94s
+        ids, boxes, scores = ids[indices], boxes[indices], logits[indices, labels]
         
         results = []
-        for x, im_s in zip(xs, image_shapes): # 20.97s
-            keep = torch.where(x[:, 4] > self.score_thresh)[0] # 3.11s
-            x = x[keep] # 0.16s
-            boxes, objectness, logits = x[:, :4], x[:, [4]], x[:, 5:] # 1.71s
-            boxes = box_ops.cxcywh2xyxy(boxes).float() # 1.58s
-            
-            boxes[:, 0].clamp_(0, im_s[1]) # 0.39s
-            boxes[:, 1].clamp_(0, im_s[0]) #~
-            boxes[:, 2].clamp_(0, im_s[1]) #~
-            boxes[:, 3].clamp_(0, im_s[0]) #~
-            
+        for i, im_s in enumerate(image_shapes): # 20.97s
+            keep = torch.where(ids == i)[0] # 3.11s
+            box, label, score = boxes[keep], labels[keep], scores[keep]
             #ws, hs = boxes[:, 2] - boxes[:, 0], boxes[:, 3] - boxes[:, 1] # 0.27s
             #keep = torch.where((ws >= self.min_size) & (hs >= self.min_size))[0] # 3.33s
             #boxes, objectness, logits = boxes[keep], objectness[keep], logits[keep] # 0.36s
             
-            logits = logits * objectness # 0.1s
-            ids, labels = torch.where(logits > self.score_thresh) # 4.94s
-            boxes, scores = boxes[ids], logits[ids, labels]
-            
-            if len(boxes) > 0:
-                keep = box_ops.batched_nms(boxes, scores, labels, self.nms_thresh, max_size) # 4.43s
+            if len(box) > 0:
+                box[:, 0].clamp_(0, im_s[1]) # 0.39s
+                box[:, 1].clamp_(0, im_s[0]) #~
+                box[:, 2].clamp_(0, im_s[1]) #~
+                box[:, 3].clamp_(0, im_s[0]) #~
+                
+                keep = box_ops.batched_nms(box, score, label, self.nms_thresh, max_size) # 4.43s
                 keep = keep[:self.detections]
                 
-                iou = box_ops.box_iou(boxes[keep], boxes) > self.nms_thresh # 1.84s
-                weights = iou * scores[None] # 0.14s
-                boxes = torch.mm(weights, boxes) / weights.sum(1, keepdim=True) # 0.55s
-                scores, labels = scores[keep], labels[keep] # 0.30s
-                
-            results.append(dict(boxes=boxes, labels=labels, scores=scores)) # boxes format: (xmin, ymin, xmax, ymax)
+                nms_box = box[keep]
+                if self.merge:
+                    iou = box_ops.box_iou(nms_box, box) > self.nms_thresh # 1.84s
+                    weights = iou * score[None] # 0.14s
+                    nms_box = torch.mm(weights, box) / weights.sum(1, keepdim=True) # 0.55s
+                    
+                box, score, label = nms_box, score[keep], label[keep] # 0.30s
+            results.append(dict(boxes=box, labels=label, scores=score)) # boxes format: (xmin, ymin, xmax, ymax)
         return results
-        
+    
     

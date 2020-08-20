@@ -21,6 +21,8 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, args, ema):
     t_m = Meter("total")
     m_m = Meter("model")
     b_m = Meter("backward")
+    o_m = Meter("optimizer")
+    e_m = Meter("ema")
     model.train()
     A = time.time()
     for i, data in enumerate(data_loader):
@@ -60,27 +62,33 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, args, ema):
             
         S = time.time()
         total_loss.backward()
+        b_m.update(time.time() - S)
         if num_iters % args.accumulate == 0:
+            S = time.time()
             optimizer.step()
             optimizer.zero_grad()
+            o_m.update(time.time() - S)
+            
+            S = time.time()
             ema.update(model)
-        b_m.update(time.time() - S)
+            e_m.update(time.time() - S)
 
         t_m.update(time.time() - T)
         if i >= iters - 1:
             break
            
     A = time.time() - A
-    print("iter: {:.1f}, total: {:.1f}, model: {:.1f}, backward: {:.1f}".format(1000*A/iters,1000*t_m.avg,1000*m_m.avg,1000*b_m.avg))
-    return (m_m.sum + b_m.sum) / iters
+    print("iter: {:.1f}, total: {:.1f}, model: {:.1f}, ".format(1000*A/iters,1000*t_m.avg,1000*m_m.avg), end="")
+    print("backward: {:.1f}, optimizer: {:.1f}, ema: {:.1f}".format(1000*b_m.avg,1000*o_m.avg,1000*e_m.avg))
+    return (m_m.sum + b_m.sum + o_m.sum + e_m.sum) / iters
             
 
-def evaluate(model, data_loader, device, args, generate=True):
+def evaluate(model, data_loader, device, args, generate=True, evaluation=True):
     if generate:
         iter_eval = generate_results(model, data_loader, device, args)
       
     output = ""
-    if distributed.get_rank() == 0:
+    if distributed.get_rank() == 0 and evaluation:
         dataset = data_loader.dataset
         coco_evaluator = CocoEvaluator(dataset.coco)
 
@@ -128,11 +136,11 @@ def generate_results(model, data_loader, device, args):
                 outputs, losses = model(images, targets)
         else:
             outputs, losses = model(images, targets)
-            
+        m_m.update(time.time() - S)
+        
         if losses and i % 10 == 0:
             print("{}\t".format(i), "\t".join("{:.3f}".format(l.item()) for l in losses.values()))
             
-        m_m.update(time.time() - S)
         outputs = [{k: v.cpu() for k, v in out.items()} for out in outputs]
         predictions = {tgt["image_id"].item(): out for tgt, out in zip(targets, outputs)}
         coco_results.extend(prepare_for_coco(predictions, ann_labels))
