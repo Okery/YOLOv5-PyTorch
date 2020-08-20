@@ -75,6 +75,6 @@ One entire epoch takes about 435 seconds (train 405s + eval 30s).
 
 Test on COCO 2017 val:
 
-| model | imgs/s (train) | imgs/s (test) | params | bbox AP | weights | pwd |
-| :----: | :---: | :---: | :--: | :--: | :--: | :--: |
-| YOLOv5s | 303 | 495 | 7.5M | 36.1 | [yolov5s_768d3ec1](https://pan.baidu.com/s/1eiwY46mpkdEdG_spzoxhpg) | ya7y |
+| model | imgs/s (train) | imgs/s (test) | params | bbox AP |
+| :----: | :---: | :---: | :--: | :--: |
+| [YOLOv5s](https://github.com/Okery/YOLOv5-PyTorch/releases/download/v0.3/yolov5s_official_2cf45318.pth) | 303 | 495 | 7.5M | 36.1 |
