@@ -28,14 +28,14 @@ script_dir="okery/"
 
 ngpu=1
 dataset="coco"
-batch_size=32
-print_freq=200
+batch_size=64
+print_freq=100
 lr=0.01
 epochs=300
 period=300
-img_size1=640
-img_size2=640
-ckpt_file="large_yolov5s_${dataset}.pth"
+img_size1=320
+img_size2=416
+ckpt_file="yolov5s_${dataset}.pth"
 iters=-1
 
 if [ $dataset = "voc" ]
