@@ -8,63 +8,47 @@ from torch import nn
 
 
 class Transformer(nn.Module):
-    def __init__(self, min_size, max_size, image_mean, image_std, stride=32):
+    def __init__(self, min_size, max_size, stride=32):
         super().__init__()
         self.min_size = min_size
         self.max_size = max_size
-        #self.max_size = math.ceil(max_size / stride) * stride
-        #self.grid_size = range(math.ceil(min_size / stride), math.ceil(max_size / stride) + 1)
-        
-        self.mean = image_mean
-        self.std = image_std
         self.stride = stride
         
-        #self.accumulate = 10
-        #self.count = 0
         self.flip_prob = 0.5
         self.mosaic = False
         
     def forward(self, images, targets):
-        images = [img for img in images]
-        targets = copy.deepcopy(targets) if targets is not None else None 
+        if targets is None:
+            transformed = [self.transforms(img, targets) for img in images]
+        else:
+            targets = copy.deepcopy(targets)
+            transformed = [self.transforms(img, tgt) for img, tgt in zip(images, targets)]
         
-        #if self.training:
-        #    if self.count % self.accumulate == 0:
-        #        self.max_size = random.choice(self.grid_size) * self.stride
-        #else:
-        #    self.max_size = self.grid_size[-1] * self.stride
+        images, targets, scale_factors = zip(*transformed)
             
-        for i in range(len(images)):
-            image = images[i]
-            target = targets[i] if targets is not None else None
+        image_shapes = None
+        if self.training:
+            if self.mosaic:
+                images, targets = mosaic_augment(images, targets)
+        else:
+            image_shapes = [img.shape[1:] for img in images]
             
-            image, target = self.transforms(image, target)
-            
-            images[i] = image
-            if target is not None:
-                targets[i] = target
-                
-        if self.training and self.mosaic:
-            images, targets = mosaic_augment(images, targets)
-            
-        image_shapes = [img.shape[1:] for img in images]
-        images = self.batched_images(images)
-        #self.count += 1
-        return images, targets, image_shapes
+        images = self.batch_images(images)
+        return images, targets, scale_factors, image_shapes
 
-    def normalize(self, image):
-        mean = image.new(self.mean)[:, None, None]
-        std = image.new(self.std)[:, None, None]
-        return (image - mean) / std
+    #def normalize(self, image):
+    #    mean = image.new(self.mean)[:, None, None]
+    #    std = image.new(self.std)[:, None, None]
+    #    return (image - mean) / std
     
     def transforms(self, image, target):
+        image, target, scale_factor = self.resize(image, target)
+        
         if self.training:
             if random.random() < self.flip_prob:
                 image, target["boxes"] = self.horizontal_flip(image, target["boxes"])
-        
-        image, target = self.resize(image, target)
-        #image = self.normalize(image)
-        return image, target
+            
+        return image, target, scale_factor
         
     def horizontal_flip(self, image, boxes):
         w = image.shape[2]
@@ -76,11 +60,11 @@ class Transformer(nn.Module):
         return image, boxes
 
     def resize(self, image, target):
-        orig_image_shape = image.shape[-2:]
+        orig_image_shape = image.shape[1:]
         min_size = min(orig_image_shape)
         max_size = max(orig_image_shape)
         scale_factor = min(self.min_size / min_size, self.max_size / max_size)
-        #scale_factor = self.max_size / max(orig_image_shape)
+        
         if scale_factor != 1:
             size = [round(s * scale_factor) for s in orig_image_shape]
             image = F.interpolate(image[None], size=size, mode="bilinear", align_corners=False)[0]
@@ -89,9 +73,9 @@ class Transformer(nn.Module):
                 box = target["boxes"]
                 box[:, [0, 2]] *= size[1] / orig_image_shape[1]
                 box[:, [1, 3]] *= size[0] / orig_image_shape[0]
-        return image, target
+        return image, target, scale_factor
     
-    def batched_images(self, images):
+    def batch_images(self, images):
         max_size = tuple(max(s) for s in zip(*(img.shape[1:] for img in images)))
         batch_size = tuple(math.ceil(m / self.stride) * self.stride for m in max_size)
 
@@ -101,14 +85,6 @@ class Transformer(nn.Module):
             pad_img[:, :img.shape[1], :img.shape[2]].copy_(img)
 
         return batched_imgs
-    
-    def postprocess(self, results, image_shapes, orig_image_shapes):
-        for i, (res, im_s, o_im_s) in enumerate(zip(results, image_shapes, orig_image_shapes)):
-            boxes = res["boxes"]
-            boxes[:, [0, 2]] *= o_im_s[1] / im_s[1]
-            boxes[:, [1, 3]] *= o_im_s[0] / im_s[0]
-            
-        return results
         
         
 def sort_images(shapes, out, dim):

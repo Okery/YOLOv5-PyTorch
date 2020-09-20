@@ -84,6 +84,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, args, ema):
             
 
 def evaluate(model, data_loader, device, args, generate=True, evaluation=True):
+    iter_eval = None
     if generate:
         iter_eval = generate_results(model, data_loader, device, args)
       

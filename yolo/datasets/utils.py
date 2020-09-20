@@ -26,9 +26,7 @@ def collate_wrapper(batch):
     
 class CustomBatch:
     def __init__(self, data):
-        transposed_data = list(zip(*data))
-        self.images = list(transposed_data[0])
-        self.targets = list(transposed_data[1])
+        self.images, self.targets = zip(*data)
 
     # custom memory pinning method on custom type
     def pin_memory(self):

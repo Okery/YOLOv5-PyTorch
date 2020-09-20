@@ -26,20 +26,19 @@ class Head(nn.Module):
         self.eval_with_loss = False
         #self.min_size = 2
         
-    def forward(self, features, batch_shape, targets, image_shapes):
+    def forward(self, features, targets, image_shapes=None, scale_factors=None, max_size=None):
         preds = self.predictor(features)
         
-        #if self.strides is None:
-        #    self.strides = [2 ** int(math.log2(batch_shape[0] / f.shape[2])) for f in features]
-        
-        results, losses = [], {}
         if self.training:
             losses = self.compute_loss(preds, targets)
+            return losses
         else:
+            losses = {}
             if self.eval_with_loss:
                 losses = self.compute_loss(preds, targets)
-            results = self.inference(preds, image_shapes, max(batch_shape))
-        return results, losses
+                
+            results = self.inference(preds, image_shapes, scale_factors, max_size)
+            return results, losses
         
     def compute_loss(self, preds, targets):
         dtype = preds[0].dtype
@@ -68,7 +67,7 @@ class Head(nn.Module):
                 xy = 2 * torch.sigmoid(pred_level[:, :2]) - 0.5 + grid_xy
                 wh = 4 * torch.sigmoid(pred_level[:, 2:4]) ** 2 * wh[anchor_id] / stride
                 box_grid = torch.cat((xy, wh), dim=1)
-                giou = box_ops.box_giou(box_grid, gt_boxes[gt_id] / stride).to(dtype)
+                giou = box_ops.box_ciou(box_grid, gt_boxes[gt_id] / stride).to(dtype)
                 losses["loss_box"] += (1 - giou).mean()
                 
                 gt_object[image_id, grid_xy[:, 1], grid_xy[:, 0], anchor_id] = \
@@ -84,7 +83,7 @@ class Head(nn.Module):
         losses = {k: v * self.loss_weights[k] for k, v in losses.items()}
         return losses
     
-    def inference(self, preds, image_shapes, max_size):
+    def inference(self, preds, image_shapes, scale_factors, max_size):
         ids, ps, boxes = [], [], []
         for pred, stride, wh in zip(preds, self.strides, self.anchors): # 3.54s
             pred = torch.sigmoid(pred)
@@ -132,8 +131,9 @@ class Head(nn.Module):
                     weights = iou * score[None] # 0.14s
                     nms_box = torch.mm(weights, box) / weights.sum(1, keepdim=True) # 0.55s
                     
-                box, score, label = nms_box, score[keep], label[keep] # 0.30s
+                box, score, label = nms_box / scale_factors[i], score[keep], label[keep] # 0.30s
             results.append(dict(boxes=box, labels=label, scores=score)) # boxes format: (xmin, ymin, xmax, ymax)
+            
         return results
     
     

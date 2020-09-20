@@ -102,7 +102,7 @@ def batched_nms(boxes, scores, labels, threshold, max_size): # boxes format: (x1
     return keep
     
     
-def true_batched_nms(ids, boxes, scores, labels, threshold, max_size): # boxes format: (x1, y1, x2, y2)
+def all_batched_nms(ids, boxes, scores, labels, threshold, max_size): # boxes format: (x1, y1, x2, y2)
     offsets = torch.stack((labels, ids, labels, ids), dim=1) * max_size
     boxes_for_nms = boxes + offsets
     keep = nms(boxes_for_nms, scores, threshold)

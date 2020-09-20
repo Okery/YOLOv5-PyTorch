@@ -42,6 +42,7 @@ class COCODataset(GeneralizedDataset):
     def convert_to_xyxy(box): # box format: (xmin, ymin, w, h)
         x1, y1, w, h = box.T
         new_box = torch.stack((x1, y1, x1 + w, y1 + h), dim=1)
+        #new_box = torch.stack((x1 + w / 2, y1 + h / 2, w, h), dim=1)
         return new_box # new_box format: (xmin, ymin, xmax, ymax)
         
     def get_target(self, img_id):
@@ -65,6 +66,9 @@ class COCODataset(GeneralizedDataset):
             boxes = self.convert_to_xyxy(boxes)
             labels = torch.tensor(labels)
             #masks = torch.stack(masks)
+        else:
+            boxes = torch.empty((0, 4))
+            labels = torch.empty((0,), dtype=torch.long)
 
         target = dict(image_id=torch.tensor([img_id]), boxes=boxes, labels=labels)
         return target

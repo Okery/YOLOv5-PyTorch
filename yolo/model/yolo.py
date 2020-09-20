@@ -24,7 +24,7 @@ class YOLOv5(nn.Module):
             [[36.2, 26.8], [25.9, 57.2], [57.8, 47.9]],
             [[122.1, 78.3], [73.7, 143.8], [236.1, 213.1]],
         ]
-        loss_weights = {"loss_box": 0.05, "loss_obj": 1.0, "loss_cls": 0.58}
+        loss_weights = {"loss_box": 0.05, "loss_obj": 1.0, "loss_cls": 0.5}
         
         self.backbone = darknet_pan_backbone(
             depth_multiple=model_size[0], width_multiple=model_size[1]) # 7.5M parameters
@@ -42,30 +42,22 @@ class YOLOv5(nn.Module):
         if isinstance(img_sizes, int):
             img_sizes = (img_sizes, img_sizes)
         self.transformer = Transformer(
-            min_size=img_sizes[0], max_size=img_sizes[1], 
-            image_mean=(0.485, 0.456, 0.406), 
-            image_std=(0.229, 0.224, 0.225))
+            min_size=img_sizes[0], max_size=img_sizes[1], stride=max(strides))
     
     def forward(self, images, targets=None):
-        orig_image_shapes = [img.shape[1:] for img in images]
-
-        images, targets, image_shapes = self.transformer(images, targets)
-        batch_shape = images.shape[2:]
-        
+        images, targets, scale_factors, image_shapes = self.transformer(images, targets)
         features = self.backbone(images)
         
-        results, losses = self.head(features, batch_shape, targets, image_shapes)
-        
         if self.training:
+            losses = self.head(features, targets)
             return losses
         else:
-            results = self.transformer.postprocess(results, image_shapes, orig_image_shapes)
+            max_size = max(images.shape[2:])
+            results, losses = self.head(features, targets, image_shapes, scale_factors, max_size)
             return results, losses
         
     def fuse(self):
         # fusing conv and bn layers
-        # However, this method has no effect for accelerating inferencing.
-        # Perhaps PyTorch has fused conv and bn layers automatically.
         for m in self.modules():
             if hasattr(m, "fused"):
                 m.fuse()
@@ -86,7 +78,7 @@ class Predictor(nn.Module):
         #        nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="leaky_relu")
         for m, n, s in zip(self.mlp, num_anchors, strides):
             b = m.bias.view(n, -1)
-            b[:, 4] += math.log(8 / (640 / s) ** 2)
+            b[:, 4] += math.log(8 / (416 / s) ** 2)
             b[:, 5:] += math.log(0.6 / (num_classes - 0.99))
             m.bias = nn.Parameter(b.view(-1), requires_grad=True)
             
