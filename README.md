@@ -69,7 +69,9 @@ If you are using PyTorch ≥ 1.6.0 and RTX series GPUs, the code will enable aut
 
 ## Performance
 
-Test on COCO 2017 val, on a single RTX 2080Ti GPU:
+Test on COCO 2017 val set, on a single RTX 2080Ti GPU:
+
+The weights is from [ultralytics' repo](https://github.com/ultralytics/yolov5)
 
 | model | bbox AP | FPS | params |
 | :----: |:---: | :--: | :--: |
