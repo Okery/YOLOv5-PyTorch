@@ -28,9 +28,9 @@ class COCOPipeline(dali.pipeline.Pipeline):
     
 
 class DALICOCODataLoader:
-    def __init__(self, data_dir, split, batch_size=1, drop_last=False, collate_fn=None, 
+    def __init__(self, file_root, ann_file, batch_size=1, drop_last=False, collate_fn=None, 
                  shuffle=False, num_threads=2, device_id=0, world_size=1):
-        self.dataset = COCODataset(data_dir, split, train=True)
+        self.dataset = COCODataset(file_root, ann_file, train=True)
         shard, extra = len(self.dataset) // world_size, len(self.dataset) % world_size
         self.init_lengths = [shard if i < world_size - extra else shard + 1 for i in range(world_size)]
         self.length = self.init_lengths[device_id]
@@ -42,8 +42,6 @@ class DALICOCODataLoader:
         self.world_size = world_size
         self.collate_fn = collate_fn if collate_fn else lambda x: x
         
-        file_root = os.path.join(data_dir, split)
-        ann_file = os.path.join(data_dir, "annotations/instances_{}.json".format(split))
         self.pipe = COCOPipeline(file_root, ann_file, batch_size, shuffle, num_threads, device_id, world_size)
         self.pipe.build()
         

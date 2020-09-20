@@ -6,16 +6,14 @@ from .generalized_dataset import GeneralizedDataset
        
         
 class COCODataset(GeneralizedDataset):
-    def __init__(self, data_dir, split, train=False, transforms=None):
+    def __init__(self, file_root, ann_file, train=False, transforms=None):
         super().__init__()
         from pycocotools.coco import COCO
         
-        self.data_dir = data_dir
-        self.split = split
+        self.file_root = file_root
         self.train = train
         self.transforms = transforms
         
-        ann_file = os.path.join(data_dir, "annotations/instances_{}.json".format(split))
         self.coco = COCO(ann_file)
         self.ids = tuple(str(k) for k in self.coco.imgs)
         
@@ -26,7 +24,8 @@ class COCODataset(GeneralizedDataset):
         # It's necessary to convert resutls' labels to annotation labels.
         self.ann_labels = {self.classes.index(v): k for k, v in self._classes.items()}
         
-        checked_id_file = os.path.join(data_dir, "checked_{}.txt".format(split))
+        dirname, split = os.path.split(file_root)
+        checked_id_file = os.path.join(dirname, "checked_{}.txt".format(split))
         if train:
             if not os.path.exists(checked_id_file):
                 self._aspect_ratios = [v["width"] / v["height"] for v in self.coco.imgs.values()]
@@ -35,7 +34,7 @@ class COCODataset(GeneralizedDataset):
     def get_image(self, img_id):
         img_id = int(img_id)
         img_info = self.coco.imgs[img_id]
-        image = Image.open(os.path.join(self.data_dir, "{}".format(self.split), img_info["file_name"]))
+        image = Image.open(os.path.join(self.file_root, img_info["file_name"]))
         return image.convert("RGB") # avoid grey image
     
     @staticmethod
