@@ -69,12 +69,8 @@ If you are using PyTorch ≥ 1.6.0 and RTX series GPUs, the code will enable aut
 
 ## Performance
 
-The model is trained from scratch, on COCO 2017 train, using a single RTX 2080Ti GPU.
+Test on COCO 2017 val, on a single RTX 2080Ti GPU:
 
-One entire epoch takes about 435 seconds (train 405s + eval 30s).
-
-Test on COCO 2017 val:
-
-| model | imgs/s (train) | imgs/s (test) | params | bbox AP |
-| :----: | :---: | :---: | :--: | :--: |
-| [YOLOv5s](https://github.com/Okery/YOLOv5-PyTorch/releases/download/v0.3/yolov5s_official_2cf45318.pth) | 303 | 495 | 7.5M | 36.1 |
+| model | bbox AP | FPS | params |
+| :----: |:---: | :--: | :--: |
+| [YOLOv5s](https://github.com/Okery/YOLOv5-PyTorch/releases/download/v0.3/yolov5s_official_2cf45318.pth) | 36.1 | 410 | 7.5M |
