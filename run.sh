@@ -24,14 +24,14 @@
 #       log.txt
 
 root="/data/nextcloud/dbc2017/files/jupyter/"
-script_dir="okery/"
+#script_dir="okery/"
 
 ngpu=1
 dataset="coco"
 batch_size=64
 print_freq=100
 lr=0.01
-epochs=300
+epochs=3
 period=300
 img_size1=320
 img_size2=416
@@ -47,8 +47,8 @@ then
 fi
 
 
-setsid python -m torch.distributed.launch --nproc_per_node=${ngpu} --use_env ${root}input/scripts/${script_dir}train.py \
+setsid python -m torch.distributed.launch --nproc_per_node=${ngpu} --use_env train.py \
 --use-cuda --epochs ${epochs} --period ${period} --batch-size ${batch_size} --lr ${lr} --img-sizes ${img_size1} ${img_size2} \
 --dataset ${dataset} --data-dir ${data_dir} --iters ${iters} --root ${root} --mosaic --dali \
 --ckpt-path ${root}input/ckpts/${ckpt_file} --print-freq ${print_freq} > ${root}data/logs/log.txt 2>&1 &
-#
+#${root}input/scripts/${script_dir}train.py

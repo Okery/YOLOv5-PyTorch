@@ -10,6 +10,7 @@ import yolo
     
 
 def main(args):
+    
     # Prepare for distributed training
     yolo.init_distributed_mode(args)
     begin_time = time.time()
@@ -24,7 +25,7 @@ def main(args):
     args.amp = False
     if cuda and torch.__version__ >= "1.6.0":
         capability = torch.cuda.get_device_capability()[0]
-        if capability >= 7: # 7 refers to RTX series GPUs, e.g. 2080Ti, 2080
+        if capability >= 7: # 7 refers to RTX series GPUs, e.g. 2080Ti, 2080, Titan RTX
             args.amp = True
             print("Automatic mixed precision (AMP) is enabled!")
         
@@ -33,6 +34,11 @@ def main(args):
     # NVIDIA DALI, much faster data loader.
     DALI = cuda & yolo.DALI & args.dali & (args.dataset == "coco")
     
+    # The code below is for COCO 2017 dataset
+    # If you're using VOC dataset or COCO 2012 dataset, remember to revise the code
+    splits = ("train2017", "val2017")
+    file_roots = [os.path.join(args.data_dir, x) for x in splits]
+    ann_files = [os.path.join(args.data_dir, "annotations/instances_{}.json".format(x)) for x in splits]
     if DALI:
         # Currently only support COCO dataset; support distributed training
         
@@ -40,17 +46,16 @@ def main(args):
         # It consists of Dataset, DataLoader and DataPrefetcher. Thus it outputs CUDA tensor.
         print("Nvidia DALI is utilized!")
         d_train = yolo.DALICOCODataLoader(
-            args.data_dir, "train2017", args.batch_size, collate_fn=yolo.collate_wrapper,
+            file_roots[0], ann_files[0], args.batch_size, collate_fn=yolo.collate_wrapper,
             drop_last=True, shuffle=True, device_id=args.gpu, world_size=args.world_size)
         
         d_test = yolo.DALICOCODataLoader(
-            args.data_dir, "val2017", args.batch_size, collate_fn=yolo.collate_wrapper, 
+            file_roots[1], ann_files[1], args.batch_size, collate_fn=yolo.collate_wrapper, 
             device_id=args.gpu, world_size=args.world_size)
     else:
-        transforms = yolo.RandomAffine((-10, 10), (0.1, 0.1), (0.9, 1.1), (-10, 10, 0, 0))
-        dataset_train = yolo.datasets(
-            args.dataset, args.data_dir, "train2017", train=True, transforms=transforms)
-        dataset_test = yolo.datasets(args.dataset, args.data_dir, "val2017", train=True) # set train=True for eval
+        #transforms = yolo.RandomAffine((0, 0), (0.1, 0.1), (0.9, 1.1), (0, 0, 0, 0))
+        dataset_train = yolo.datasets(args.dataset, file_roots[0], ann_files[0], train=True)
+        dataset_test = yolo.datasets(args.dataset, file_roots[1], ann_files[1], train=True) # set train=True for eval
 
         if args.distributed:
             sampler_train = torch.utils.data.distributed.DistributedSampler(dataset_train)
