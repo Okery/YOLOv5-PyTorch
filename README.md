@@ -24,7 +24,7 @@ Besides, it's better to remove the prints in pycocotools.
 
 **optional:**
 
-- **nvidia dali (Linux)** - a faster data loader
+- **nvidia dali (Linux only)** - a faster data loader
 
 ## Datasets
 
@@ -40,7 +40,7 @@ If you want to train your own dataset, you may:
 
 **MS COCO 2017**: ```http://cocodataset.org/```
 
-Nvidia DALI is strongly recommended. It's much faster than the original data loader.
+Nvidia DALI is strongly recommended. It's much faster than PyTorch's data loader.
 
 Currently this repository supports COCO-style dataset with DALI.
 
