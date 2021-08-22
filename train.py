@@ -10,7 +10,6 @@ import yolo
     
 
 def main(args):
-    
     # Prepare for distributed training
     yolo.init_distributed_mode(args)
     begin_time = time.time()
@@ -53,7 +52,7 @@ def main(args):
             file_roots[1], ann_files[1], args.batch_size, collate_fn=yolo.collate_wrapper, 
             device_id=args.gpu, world_size=args.world_size)
     else:
-        #transforms = yolo.RandomAffine((0, 0), (0.1, 0.1), (0.9, 1.1), (0, 0, 0, 0))
+        # transforms = yolo.RandomAffine((0, 0), (0.1, 0.1), (0.9, 1.1), (0, 0, 0, 0))
         dataset_train = yolo.datasets(args.dataset, file_roots[0], ann_files[0], train=True)
         dataset_test = yolo.datasets(args.dataset, file_roots[1], ann_files[1], train=True) # set train=True for eval
 
@@ -120,7 +119,7 @@ def main(args):
     print("Optimizer param groups: ", end="")
     print(", ".join("{} {}".format(len(v), k) for k, v in params.items()))
     del params
-    torch.cuda.empty_cache()
+    if cuda: torch.cuda.empty_cache()
        
     ema = yolo.ModelEMA(model)
     ema_without_ddp = ema.ema.module if args.distributed else ema.ema
