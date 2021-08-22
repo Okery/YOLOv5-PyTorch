@@ -12,7 +12,7 @@ and the code is using the structure of [TorchVision](https://github.com/pytorch/
 
 - **Windows** or **Linux**, with **Python ≥ 3.6**
 
-- **[PyTorch](https://pytorch.org/) ≥ 1.4.0**
+- **[PyTorch](https://pytorch.org/) ≥ 1.6.0**
 
 - **matplotlib** - visualizing images and results
 
@@ -24,7 +24,7 @@ Besides, it's better to remove the prints in pycocotools.
 
 **optional:**
 
-- **nvidia dali (Linux only)** - a faster data loader
+- **nvidia dali (Linux only)** - a faster data loader(recommended). [Download page](https://developer.download.nvidia.cn/compute/redist/nvidia-dali-cuda100/)
 
 ## Datasets
 
@@ -36,17 +36,17 @@ If you want to train your own dataset, you may:
 
 - convert your dataset to COCO-style
 
-**PASCAL VOC 2012** ([download](http://host.robots.ox.ac.uk/pascal/VOC/voc2012/VOCtrainval_11-May-2012.tar)): ```http://host.robots.ox.ac.uk/pascal/VOC/voc2012/```
+**PASCAL VOC 2012**: ```http://host.robots.ox.ac.uk/pascal/VOC/voc2012/```
 
 **MS COCO 2017**: ```http://cocodataset.org/```
 
-Nvidia DALI is strongly recommended. It's much faster than PyTorch's data loader.
+Nvidia DALI is strongly recommended. It may be much faster than the original data loader.
 
 Currently this repository supports COCO-style dataset with DALI.
 
 ## Training
 
-Train on COCO dataset, using 1 GPU (if you wanna use 2 GPUs, set --nproc_per_node=2):
+Train on COCO dataset, using 1 GPU (if you wanna use N GPUs, just set --nproc_per_node=N):
 ```
 python -m torch.distributed.launch --nproc_per_node=1 --use_env train.py --use-cuda --dali --mosaic \
 --epochs 190 --data-dir "./data/coco2017" --ckpt-path "yolov5s_coco.pth"
@@ -57,7 +57,7 @@ To run it:
 ```
 bash ./run.sh
 ```
-If you are using PyTorch ≥ 1.6.0 and RTX series GPUs, the code will enable automatic mixed training (AMP).
+If you use RTX series GPUs, the code will enable automatic mixed training (AMP).
 
 ## Demo and Evaluation
 
@@ -69,7 +69,7 @@ If you are using PyTorch ≥ 1.6.0 and RTX series GPUs, the code will enable aut
 
 ## Performance
 
-Test on COCO 2017 val set, on a single RTX 2080Ti GPU:
+Test on COCO 2017 val set, on 1 2080Ti GPU:
 
 The weights is from [ultralytics' repo](https://github.com/ultralytics/yolov5).
 
