@@ -7,29 +7,34 @@ from nvidia.dali.plugin.pytorch import feed_ndarray
 from .coco_dataset import COCODataset
 
 # Nvidia DALI docs: https://docs.nvidia.com/deeplearning/dali/user-guide/docs/
-# install DALI for CUDA 10.x: 
-# pip install --extra-index-url https://developer.download.nvidia.com/compute/redist nvidia-dali-cuda100
 
-class COCOPipeline(dali.pipeline.Pipeline):
-    def __init__(self, file_root, ann_file, batch_size, shuffle=False,
-                 num_threads=2, device_id=0, world_size=1):
-        super().__init__(batch_size, num_threads, device_id, seed=12 + device_id)
-        self.reader = dali.ops.COCOReader(
-            file_root=file_root, annotations_file=ann_file, shuffle_after_epoch=shuffle,
-            num_shards=world_size, shard_id=device_id, skip_empty=True, save_img_ids=True,
-            pad_last_batch=True, ltrb=True, read_ahead=True
+# How to install DALI for CUDA 10.x? 
+# 1) download the wheel file: https://developer.download.nvidia.cn/compute/redist/nvidia-dali-cuda100/
+# 2) open the terminal, enter: pip install nvidia_dali_cuda100-1.3.0-2471498-py3-none-manylinux2014_x86_64.whl
+
+class COCOPipeline:
+    def __init__(self, file_root, ann_file, batch_size, shuffle, num_threads, device_id, world_size):
+        super().__init__()
+        self.pipe = dali.pipeline.Pipeline(
+            batch_size, num_threads, device_id, seed=12 + device_id
         )
-        self.decoder = dali.ops.ImageDecoder(device="mixed", output_type=dali.types.RGB)
+        with self.pipe:
+            jpgs, boxes, labels, img_ids = dali.fn.readers.coco(
+                file_root=file_root, annotations_file=ann_file, shuffle_after_epoch=shuffle,
+                num_shards=world_size, shard_id=device_id, skip_empty=True, image_ids=True,
+                pad_last_batch=True, ltrb=True, read_ahead=True
+            )
+            images = dali.fn.decoders.image(jpgs, device="mixed")
+            self.pipe.set_outputs(images, boxes, labels, img_ids)
+        self.pipe.build()
 
-    def define_graph(self):
-        jpgs, boxes, labels, img_ids = self.reader()
-        images = self.decoder(jpgs)
+    def run(self):
+        images, boxes, labels, img_ids = self.pipe.run()
         return images, boxes, labels, img_ids
-    
 
 class DALICOCODataLoader:
     def __init__(self, file_root, ann_file, batch_size=1, drop_last=False, collate_fn=None, 
-                 shuffle=False, num_threads=2, device_id=0, world_size=1):
+                 shuffle=False, num_threads=4, device_id=0, world_size=1):
         self.dataset = COCODataset(file_root, ann_file, train=True)
         shard, extra = len(self.dataset) // world_size, len(self.dataset) % world_size
         self.init_lengths = [shard if i < world_size - extra else shard + 1 for i in range(world_size)]
@@ -43,7 +48,6 @@ class DALICOCODataLoader:
         self.collate_fn = collate_fn if collate_fn else lambda x: x
         
         self.pipe = COCOPipeline(file_root, ann_file, batch_size, shuffle, num_threads, device_id, world_size)
-        self.pipe.build()
         
         self.epoch = 0
         self.stream = torch.cuda.Stream()
@@ -81,7 +85,7 @@ class DALICOCODataLoader:
 
             img_id = torch.from_numpy(id_list.at(i)).cuda()
             boxes = torch.from_numpy(boxes_list.at(i)).cuda()
-            labels = torch.from_numpy(labels_list.at(i) - 1).squeeze(1).cuda()
+            labels = torch.from_numpy(labels_list.at(i) - 1).cuda()
             tgt = {"image_id": img_id, "boxes": boxes, "labels": labels.long()}
             
             batch.append((img, tgt))

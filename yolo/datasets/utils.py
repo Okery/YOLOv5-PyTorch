@@ -42,12 +42,10 @@ class GroupedBatchSampler:
         self.drop_last = drop_last
         
         bins = (2 ** torch.linspace(-1, 1, 2 * factor + 1)).tolist()
-        groups = tuple(bisect.bisect(bins, float(x)) for x in aspect_ratios)
-        self.group_ids = groups
+        self.group_ids = tuple(bisect.bisect(bins, float(x)) for x in aspect_ratios)
 
     def __iter__(self):
         buffer_per_group = defaultdict(list)
-        samples_per_group = defaultdict(list)
 
         num_batches = 0
         for idx in self.sampler:
@@ -94,7 +92,8 @@ class DataPrefetcher:
             with torch.cuda.stream(self.stream):
                 d.images = [img.cuda(non_blocking=True) for img in d.images]
                 d.targets = [{k: v.cuda(non_blocking=True) for k, v in tgt.items()} for tgt in d.targets]
-            self._cache = d
+                self._cache = d
+                
             yield out
         yield self._cache
         
