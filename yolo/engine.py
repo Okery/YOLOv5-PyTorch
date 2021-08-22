@@ -17,6 +17,7 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, args, ema):
         p["lr"] = args.lr_epoch
 
     iters = len(data_loader) if args.iters < 0 else args.iters
+    num_iters = epoch * len(data_loader)
 
     t_m = Meter("total")
     m_m = Meter("model")
@@ -27,7 +28,6 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, args, ema):
     A = time.time()
     for i, data in enumerate(data_loader):
         T = time.time()
-        num_iters = epoch * len(data_loader) + i
         if num_iters <= args.warmup_iters:
             r = num_iters / args.warmup_iters
             args.accumulate = max(1, round(r * (64 / args.batch_size - 1) + 1))
@@ -74,6 +74,8 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, args, ema):
             e_m.update(time.time() - S)
 
         t_m.update(time.time() - T)
+        
+        num_iters += 1
         if i >= iters - 1:
             break
            
@@ -130,7 +132,7 @@ def generate_results(model, data_loader, device, args):
         images = data.images
         targets = data.targets
 
-        torch.cuda.synchronize()
+        #torch.cuda.synchronize()
         S = time.time()
         if args.amp:
             with torch.cuda.amp.autocast():
