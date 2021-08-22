@@ -77,10 +77,10 @@ class Predictor(nn.Module):
         #    if isinstance(m, nn.Conv2d):
         #        nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="leaky_relu")
         for m, n, s in zip(self.mlp, num_anchors, strides):
-            b = m.bias.view(n, -1)
+            b = m.bias.detach().view(n, -1)
             b[:, 4] += math.log(8 / (416 / s) ** 2)
             b[:, 5:] += math.log(0.6 / (num_classes - 0.99))
-            m.bias = nn.Parameter(b.view(-1), requires_grad=True)
+            m.bias = nn.Parameter(b.view(-1))
             
     def forward(self, x):
         N = x[0].shape[0]
