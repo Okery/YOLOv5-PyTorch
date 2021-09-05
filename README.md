@@ -51,7 +51,7 @@ Currently this repository supports COCO-style dataset with DALI.
 
 The model is mainly made of Darknet and PANet.
 
-You can get its flowchart by opening YOLOv5.drawio with [drawio](https://www.draw.io/index.html)
+You can get its flowchart by opening YOLOv5.drawio with [drawio](https://app.diagrams.net/)
 
 ## Training
 
