@@ -43,7 +43,7 @@ If you want to train your own dataset, you may:
 
 **MS COCO 2017**: ```http://cocodataset.org/```
 
-Nvidia DALI is strongly recommended. It may be much faster than the original data loader.
+NVIDIA DALI is strongly recommended. It may be much faster than the original data loader.
 
 Currently this repository supports COCO-style dataset with DALI.
 
