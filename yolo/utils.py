@@ -76,9 +76,12 @@ class TextArea:
     def get_AP(self):
         txt = str(self)
         values = re.findall(r"(\d{3})\n", txt)
-        values = [int(v) / 10 for v in values]
-        result = {"bbox AP": values[0]} if values else {}
-        return result
+        if len(values) > 0:
+            values = [int(v) / 10 for v in values]
+            result = {"bbox AP": values[0]} if values else {}
+            return result
+        else:
+            return txt
     
     
 class Meter:
