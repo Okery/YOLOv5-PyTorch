@@ -47,6 +47,12 @@ Nvidia DALI is strongly recommended. It may be much faster than the original dat
 
 Currently this repository supports COCO-style dataset with DALI.
 
+## Model
+
+The model is mainly made of Darknet and PANet.
+
+You can get its flowchart by opening YOLOv5.drawio with [drawio](https://www.draw.io/index.html)
+
 ## Training
 
 Train on COCO dataset, using 1 GPU (if you wanna use N GPUs, just set --nproc_per_node=N):
