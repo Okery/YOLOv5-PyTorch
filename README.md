@@ -57,7 +57,7 @@ You can get its flowchart by opening ```images/YOLOv5.drawio``` with [drawio](ht
 
 Train on COCO dataset, using 1 GPU (if you wanna use N GPUs, just set --nproc_per_node=N):
 ```
-python -m torch.distributed.launch --nproc_per_node=1 --use_env train.py --use-cuda --dali --mosaic \
+python -m torch.distributed.run --nproc_per_node=1 --use_env train.py --use-cuda --dali --mosaic \
 --epochs 190 --data-dir "./data/coco2017" --ckpt-path "yolov5s_coco.pth"
 ```
 A more concrete modification is in ```run.sh```.
