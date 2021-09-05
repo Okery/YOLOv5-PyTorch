@@ -1,8 +1,8 @@
-##<p align="center"> YOLOv5-PyTorch </p>
-
-A PyTorch implementation of YOLOv5.
+## YOLOv5-PyTorch
 
 ![First](https://github.com/Okery/YOLOv5-PyTorch/blob/master/images/r002.jpg)
+
+A PyTorch implementation of YOLOv5.
 
 This repository has two features:
 - It is pure python code and can be run immediately using PyTorch 1.4 without build
