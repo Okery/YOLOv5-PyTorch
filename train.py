@@ -134,7 +134,7 @@ def main(args):
         ema_without_ddp.load_state_dict(checkpoint["ema"][0])
         ema.updates = checkpoint["ema"][1]
         del checkpoint
-        torch.cuda.empty_cache()
+        if cuda: torch.cuda.empty_cache()
 
     since = time.time()
     print("\nalready trained: {} epochs; to {} epochs".format(start_epoch, args.epochs))
