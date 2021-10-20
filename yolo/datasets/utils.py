@@ -92,7 +92,7 @@ class DataPrefetcher:
             with torch.cuda.stream(self.stream):
                 d.images = [img.cuda(non_blocking=True) for img in d.images]
                 d.targets = [{k: v.cuda(non_blocking=True) for k, v in tgt.items()} for tgt in d.targets]
-                self._cache = d
+            self._cache = d
                 
             yield out
         yield self._cache
