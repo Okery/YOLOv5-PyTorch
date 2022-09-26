@@ -113,7 +113,7 @@ class Head(nn.Module):
         results = []
         for i, im_s in enumerate(image_shapes): # 20.97s
             keep = torch.where(ids == i)[0] # 3.11s
-            box, label, score = boxes[keep], labels[keep], scores[keep]
+            box, label, score = torch.index_select(boxes, 0, keep), torch.index_select(labels, 0, keep), torch.index_select(scores, 0, keep)
             #ws, hs = boxes[:, 2] - boxes[:, 0], boxes[:, 3] - boxes[:, 1] # 0.27s
             #keep = torch.where((ws >= self.min_size) & (hs >= self.min_size))[0] # 3.33s
             #boxes, objectness, logits = boxes[keep], objectness[keep], logits[keep] # 0.36s
