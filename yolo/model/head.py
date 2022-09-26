@@ -3,6 +3,7 @@ import torch.nn.functional as F
 from torch import nn
 
 from . import box_ops
+from collections import namedtuple
 
 
 class Head(nn.Module):
@@ -24,6 +25,7 @@ class Head(nn.Module):
         
         self.merge = False
         self.eval_with_loss = False
+        self.Result = namedtuple('Result', ['boxes', 'labels', 'scores'])
         #self.min_size = 2
         
     def forward(self, features, targets, image_shapes=None, scale_factors=None, max_size=None):
@@ -133,7 +135,7 @@ class Head(nn.Module):
                     nms_box = torch.mm(weights, box) / weights.sum(1, keepdim=True) # 0.55s
                     
                 box, label, score = nms_box / scale_factors[i], nms_label, score[keep] # 0.30s
-            results.append(dict(boxes=box, labels=label, scores=score)) # boxes format: (xmin, ymin, xmax, ymax)
+            results.append(self.Result(box, label, score)) # boxes format: (xmin, ymin, xmax, ymax)
             
         return results
     

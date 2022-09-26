@@ -43,7 +43,7 @@ class YOLOv5(nn.Module):
             img_sizes = (img_sizes, img_sizes)
         self.transformer = Transformer(
             min_size=img_sizes[0], max_size=img_sizes[1], stride=max(strides))
-    
+
     def forward(self, images, targets=None):
         images, targets, scale_factors, image_shapes = self.transformer(images, targets)
         features = self.backbone(images)
@@ -54,8 +54,8 @@ class YOLOv5(nn.Module):
         else:
             max_size = max(images.shape[2:])
             results, losses = self.head(features, targets, image_shapes, scale_factors, max_size)
-            return results, losses
-        
+            return tuple(results), (() if losses == {} else losses)
+
     def fuse(self):
         # fusing conv and bn layers
         for m in self.modules():
