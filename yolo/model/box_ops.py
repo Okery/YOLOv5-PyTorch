@@ -110,7 +110,7 @@ def all_batched_nms(ids, boxes, scores, labels, threshold, max_size): # boxes fo
 
 
 def cxcywh2xyxy(box): # box format: (cx, cy, w, h)
-    cx, cy, w, h = box.T
+    cx, cy, w, h = torch.t(box)
     ws = w / 2
     hs = h / 2
     new_box = torch.stack((cx - ws, cy - hs, cx + ws, cy + hs), dim=1)
